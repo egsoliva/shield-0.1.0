@@ -34,4 +34,8 @@ accelerometer.lowPassFilter(norm, 0.13);
 ```
 accelerometer.lowPassFilter(norm, 0.3);
 ```
-![alpa@0.3]()
+![alpa@0.3](https://github.com/sagaciousboi/shield-0.1.0/blob/main/others/xyz_graph_20s_16g_100hz_lowpassfilter_alpha0.3.png)
+
+Feel free to let me know your interpretations regarding this, I have started researching on this topic 
+and it led me to the rabbit hole. The graphs often interpret a signal and how various variables can affect it. 
+This field focuses more on the digital signal processing (DSP) side. 
