@@ -14,4 +14,5 @@ To properly set up the code, the libraries must be installed into your computer.
 ![SHIELD Wiring Diagram](https://github.com/sagaciousboi/shield-0.1.0/blob/main/schematic-diagram.png)
 
 ## Instructions
-When soldering the accelerometer module make sure that the chip faces upward inside the closure. This helps ensure that the readings on the z-axis are close to 1g.
+When soldering the accelerometer module, ensure the chip faces upward inside the closure. This helps ensure that the readings on the z-axis are close to 1g. In addition, the readings
+for the pitch, roll, and yaw would be influenced if the orientation is different.
