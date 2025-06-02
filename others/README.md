@@ -30,4 +30,8 @@ When I tried changing the alpha value, the graph seems to behave differently to 
 ```
 accelerometer.lowPassFilter(norm, 0.13);
 ```
-![alpha@0.13]()
+![alpha@0.13](https://github.com/sagaciousboi/shield-0.1.0/blob/main/others/xyz_graph_30s_16g_100hz_lowpassfilter_alpha0.13.png)
+```
+accelerometer.lowPassFilter(norm, 0.3);
+```
+![alpa@0.3]()
