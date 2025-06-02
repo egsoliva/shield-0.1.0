@@ -11,3 +11,4 @@ YouTube: http://www.youtube.com/watch?v=90kI_tfOOzI
 
 This library use I2C to communicate, 2 pins are required to interface
 
+Original Link: https://github.com/jarzebski/Arduino-ADXL345
