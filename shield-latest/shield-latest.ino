@@ -10,8 +10,9 @@
 *       to debris or objects during an emergency
 *     - The data rate set in the code is 100 Hz
 *     - ADXL345 Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
-*     - The threshold should be clearly defined in the next update
+*     - Threshold should be clearly defined in the next update
 *     - Add a debug feature in the next update to monitor errors
+*     - Add pitch, roll, and yaw if possible to detect movement from head
 *
 **********************************************************************************************************/
 
@@ -72,7 +73,7 @@ void loop() {
   readGPSData();
   readGyroscopeData();
 
-  if(accel > 10 && gpsSerial.available() > 0) {
+  if(accel > 20 && gpsSerial.available() > 0) {
     tone(BUZZER, 4000, 5000); // You may adjust the parameters
     sendEmergency();
   }
@@ -107,7 +108,7 @@ void readAccelerometerData() {
 
 void readGyroscopeData() {
   Vector norm = accelerometer.readNormalize();
-  Vector filtered = accelerometer.lowPassFilter(norm, 0.78); // You may set the alpha as [0.1, 0.9]
+  Vector filtered = accelerometer.lowPassFilter(norm, 0.89); // You may set the alpha as [0.1, 0.9]
   
   x_accel_raw = norm.XAxis - 0.2;
   y_accel_raw = norm.YAxis;
