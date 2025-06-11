@@ -10,9 +10,8 @@
 *       to debris or objects during an emergency
 *     - The data rate set in the code is 100 Hz
 *     - ADXL345 Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
-*     - Threshold should be clearly defined in the next update
+*     - The threshold should be clearly defined in the next update
 *     - Add a debug feature in the next update to monitor errors
-*     - Add pitch, roll, and yaw if possible to detect movement from head
 *
 **********************************************************************************************************/
 
@@ -43,7 +42,7 @@ ADXL345 accelerometer;
 
 float x_accel_raw, y_accel_raw, z_accel_raw, accel_raw, x_filtered, 
       y_filtered, z_filtered, x_medfilt, y_medfilt, z_medfilt, accel;
-float pitch, roll, yaw;
+float pitch, roll, yaw, filt_pitch, filt_roll;
 
 const char *numbers[] = {"adviserNumber", "guardianNumber", "nurseNumber"}; // Place their numbers in the respective places
 
@@ -88,7 +87,6 @@ void setAccelerometerSettings() {
 // Read data from accelerometer and filter noise
 void readAccelerometerData() {
   Vector norm = accelerometer.readNormalize();
-  Vector filtered = accelerometer.lowPassFilter(norm, 0.78); // You may set the alpha as [0.1, 0.9]
 
   x_accel_raw = norm.XAxis - 0.2;
   y_accel_raw = norm.YAxis;
@@ -115,12 +113,20 @@ void readGyroscopeData() {
   y_accel_raw = norm.YAxis;
   z_accel_raw = norm.ZAxis + 0.08;
 
-  // Calculate Pitch & Roll
+  x_filtered = filtered.XAxis;
+  y_filtered = filtered.YAxis;
+  z_filtered = filtered.ZAxis;
+
+  // Pitch and roll
   pitch = -(atan2(x_accel_raw, sqrt(pow(y_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
   roll  = (atan2(y_accel_raw, sqrt(pow(x_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
 
-  Serial.print("Pitch:"); Serial.print(pitch);
-  Serial.print(" Roll:"); Serial.println(roll);
+  // Filtered pitch and roll
+  filt_pitch = -(atan2(x_filtered, sqrt(pow(y_filtered, 2) + pow(z_filtered, 2))) * 180.0)/M_PI;
+  filt_roll = (atan2(y_filtered, sqrt(pow(x_filtered, 2) + pow(z_filtered, 2))) * 180.0)/M_PI;
+
+  Serial.print("Pitch:"); Serial.print(filt_pitch);
+  Serial.print(" Roll:"); Serial.println(filt_roll);
 }
 
 // Read data from GPS module (from TinyGPS++ library)
