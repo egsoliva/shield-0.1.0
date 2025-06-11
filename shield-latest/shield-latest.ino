@@ -1,6 +1,6 @@
 /**********************************************************************************************************
 *
-*   SHIELD v1.0 - Smart Hard Hat with Impact Emergency Location Detector for Instant Disaster Response
+*   SHIELD v1.1 - Smart Hard Hat with Impact Emergency Location Detector for Instant Disaster Response
 *
 *   COMMENTS:
 *     - This version has no threshold and only focuses on setting up the SIM800L EVB module, GPS module,
@@ -20,8 +20,10 @@
 #include <ADXL345.h>
 #include <TinyGPS++.h>
 #include <Filters.h>
+#include <AH/STL/cmath>     
 #include <AH/Timing/MillisMicrosTimer.hpp>
 #include <Filters/Butterworth.hpp>
+#include <Filters/MedianFilter.hpp>
 
 #define BUZZER 4
 #define SDA 23
@@ -39,16 +41,22 @@ HardwareSerial sim800Serial(1);
 
 ADXL345 accelerometer;
 
-float x, y, z, accel, x_filtered, y_filtered, z_filtered;
+float x_accel_raw, y_accel_raw, z_accel_raw, accel_raw, x_filtered, 
+      y_filtered, z_filtered, x_medfilt, y_medfilt, z_medfilt, accel;
+float pitch, roll, yaw;
 
 const char *numbers[] = {"adviserNumber", "guardianNumber", "nurseNumber"}; // Place their numbers in the respective places
 
 double latitude = gps.location.lat();
 double longitude = gps.location.lng();
 
-const double f_s = 100; // Sample frequency (Hz)
+const double f_s = 45; // Sample frequency (Hz)
 const double f_c = 10; // Cut-off frequency (Hz)
 const double f_n = 2 * f_c / f_s; // Normalized cut-off frequency (Hz)
+
+MedianFilter<3, float> medfilt_X = {0}; // Median filter 
+MedianFilter<3, float> medfilt_Y = {0};
+MedianFilter<3, float> medfilt_Z = {0};
 
 void setup() {
   Serial.begin(115200);  
@@ -63,6 +71,7 @@ void setup() {
 void loop() {
   readAccelerometerData();
   readGPSData();
+  readGyroscopeData();
 
   if(accel > 10 && gpsSerial.available() > 0) {
     tone(BUZZER, 4000, 5000); // You may adjust the parameters
@@ -80,23 +89,38 @@ void setAccelerometerSettings() {
 void readAccelerometerData() {
   Vector norm = accelerometer.readNormalize();
   Vector filtered = accelerometer.lowPassFilter(norm, 0.78); // You may set the alpha as [0.1, 0.9]
-  auto filter = butter<6>(f_n); // Sixth-order Butterworth Filter (can be changed)
-  
-  x = norm.XAxis;
-  y = norm.YAxis;
-  z = norm.ZAxis;
-  x_filtered = filter(x); // Using Butterworth Filter (readings are stable, unless I messed up the const values)
-  y_filtered = filter(y); // Using Butterworth Filter (readings are too noisy, must be adjusted or use another filter)
-  z_filtered = filtered.ZAxis; // Uses a Low Pass Filter (readings are a little noisy)
-  
-  accel = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+
+  x_accel_raw = norm.XAxis - 0.2;
+  y_accel_raw = norm.YAxis;
+  z_accel_raw = norm.ZAxis + 0.08;
+
+  x_medfilt = medfilt_X(x_accel_raw);
+  y_medfilt = medfilt_Y(y_accel_raw);
+  z_medfilt = medfilt_Z(z_accel_raw);
+  accel = sqrt(pow(x_medfilt, 2) + pow(y_medfilt, 2) + pow(z_medfilt, 2));
 
   Serial.print(millis()); Serial.print(","); // Represent milliseconds passed
-  Serial.print("X:"); Serial.print(x_filtered, 2);
-  Serial.print(" Y:"); Serial.print(y_filtered, 2);
-  Serial.print(" Z:"); Serial.print(z_filtered, 2);
+  Serial.print("X:"); Serial.print(x_medfilt, 2);
+  Serial.print(" Y:"); Serial.print(y_medfilt, 2);
+  Serial.print(" Z:"); Serial.print(z_medfilt, 2);
   Serial.print(" Accel:"); Serial.println(accel, 2);
   delay(10); // Send data every 10ms or at 100 Hz
+}
+
+void readGyroscopeData() {
+  Vector norm = accelerometer.readNormalize();
+  Vector filtered = accelerometer.lowPassFilter(norm, 0.78); // You may set the alpha as [0.1, 0.9]
+  
+  x_accel_raw = norm.XAxis - 0.2;
+  y_accel_raw = norm.YAxis;
+  z_accel_raw = norm.ZAxis + 0.08;
+
+  // Calculate Pitch & Roll
+  pitch = -(atan2(x_accel_raw, sqrt(pow(y_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
+  roll  = (atan2(y_accel_raw, sqrt(pow(x_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
+
+  Serial.print("Pitch:"); Serial.print(pitch);
+  Serial.print(" Roll:"); Serial.println(roll);
 }
 
 // Read data from GPS module (from TinyGPS++ library)
