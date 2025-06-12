@@ -34,6 +34,8 @@
 #define SIM800L_TX 18
 #define GPS_BAUD 9600
 #define SIM800L_BAUD 9600
+#define THRESHOLD 10 // Threshold to compare with SMA
+#define ACCELERATION_THRESHOLD 17.658f
 
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(2);
@@ -41,9 +43,14 @@ HardwareSerial sim800Serial(1);
 
 ADXL345 accelerometer;
 
+unsigned long startMillis, currentMillis;
+const unsigned long interval = 1000;
 float x_accel_raw, y_accel_raw, z_accel_raw, accel_raw, x_filtered, 
-      y_filtered, z_filtered, x_medfilt, y_medfilt, z_medfilt, accel;
-float pitch, roll, yaw, filt_pitch, filt_roll;
+      y_filtered, z_filtered, x_medfilt, y_medfilt, z_medfilt, accel, 
+      z_accel_raw_g;
+double pitch, roll, yaw, filt_pitch, filt_roll, tilt;
+float movsum_x = 0, movsum_y = 0, movsum_z = 0;
+float signal_magnitude_area;
 
 const char *numbers[] = {"adviserNumber", "guardianNumber", "nurseNumber"}; // Place their numbers in the respective places
 
@@ -55,8 +62,10 @@ const double f_c = 10; // Cut-off frequency (Hz)
 const double f_n = 2 * f_c / f_s; // Normalized cut-off frequency (Hz)
 
 MedianFilter<3, float> medfilt_X = {0}; // Median filter 
-MedianFilter<3, float> medfilt_Y = {0};
+MedianFilter<4, float> medfilt_Y = {0};
 MedianFilter<3, float> medfilt_Z = {0};
+
+double minutes = millis()/60000;
 
 void setup() {
   Serial.begin(115200);  
@@ -66,6 +75,7 @@ void setup() {
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX, GPS_TX);
   sim800Serial.begin(SIM800L_BAUD, SERIAL_8N1, SIM800L_RX, SIM800L_TX);
   setAccelerometerSettings();
+  startMillis = millis();
 }
 
 void loop() {
@@ -73,9 +83,47 @@ void loop() {
   readGPSData();
   readGyroscopeData();
 
-  if(accel > 20 && gpsSerial.available() > 0) {
-    tone(BUZZER, 4000, 5000); // You may adjust the parameters
-    sendEmergency();
+  currentMillis = millis();
+  if(currentMillis - startMillis < 1000) {
+    movsum_x += x_medfilt;
+    movsum_y += y_medfilt;
+    movsum_z += z_medfilt;
+    signal_magnitude_area = movsum_x + movsum_y + movsum_z;
+    
+    if(signal_magnitude_area > THRESHOLD) {
+      if(accel > ACCELERATION_THRESHOLD && gpsSerial.available() > 0) {
+        tone(BUZZER, 4000, 5000);
+        sendEmergency();
+      }
+      else {
+        if(tilt >= 0 && tilt <= 60) {
+          Serial.println("Upright Active");
+        }
+        else {
+          Serial.println("Lying Active");
+        }
+      }
+    }
+    else {
+      if(tilt >= 0 && tilt <= 60) {
+        if(tilt >= 20 && tilt <= 60) {
+          Serial.println("Sitting");
+        }
+        else {
+          Serial.println("Standing");
+        }
+      }
+      else {
+        Serial.println("Lying");
+      }
+    }
+  }
+  else { // Reset variables
+    movsum_x = 0;
+    movsum_y = 0;
+    movsum_z = 0;
+    signal_magnitude_area = 0;
+    startMillis = currentMillis;
   }
 }
 
@@ -91,14 +139,14 @@ void readAccelerometerData() {
 
   x_accel_raw = norm.XAxis - 0.2;
   y_accel_raw = norm.YAxis;
-  z_accel_raw = norm.ZAxis + 0.08;
+  z_accel_raw = norm.ZAxis;
 
   x_medfilt = medfilt_X(x_accel_raw);
   y_medfilt = medfilt_Y(y_accel_raw);
   z_medfilt = medfilt_Z(z_accel_raw);
   accel = sqrt(pow(x_medfilt, 2) + pow(y_medfilt, 2) + pow(z_medfilt, 2));
 
-  Serial.print(millis()); Serial.print(","); // Represent milliseconds passed
+  //Serial.print(minutes, 3); Serial.print(","); // Represent milliseconds passed
   Serial.print("X:"); Serial.print(x_medfilt, 2);
   Serial.print(" Y:"); Serial.print(y_medfilt, 2);
   Serial.print(" Z:"); Serial.print(z_medfilt, 2);
@@ -108,26 +156,26 @@ void readAccelerometerData() {
 
 void readGyroscopeData() {
   Vector norm = accelerometer.readNormalize();
-  Vector filtered = accelerometer.lowPassFilter(norm, 0.89); // You may set the alpha as [0.1, 0.9]
   
   x_accel_raw = norm.XAxis - 0.2;
   y_accel_raw = norm.YAxis;
-  z_accel_raw = norm.ZAxis + 0.08;
+  z_accel_raw = norm.ZAxis;
 
-  x_filtered = filtered.XAxis;
-  y_filtered = filtered.YAxis;
-  z_filtered = filtered.ZAxis;
+  x_medfilt = medfilt_X(x_accel_raw);
+  y_medfilt = medfilt_Y(y_accel_raw);
+  z_medfilt = medfilt_Z(z_accel_raw);
 
   // Pitch and roll
   pitch = -(atan2(x_accel_raw, sqrt(pow(y_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
   roll  = (atan2(y_accel_raw, sqrt(pow(x_accel_raw, 2) + pow(z_accel_raw, 2))) * 180.0)/M_PI;
 
   // Filtered pitch and roll
-  filt_pitch = -(atan2(x_filtered, sqrt(pow(y_filtered, 2) + pow(z_filtered, 2))) * 180.0)/M_PI;
-  filt_roll = (atan2(y_filtered, sqrt(pow(x_filtered, 2) + pow(z_filtered, 2))) * 180.0)/M_PI;
+  filt_pitch = -(atan2(x_medfilt, sqrt(pow(y_medfilt, 2) + pow(z_medfilt, 2))) * 180.0)/M_PI;
+  filt_roll = (atan2(y_medfilt, sqrt(pow(x_medfilt, 2) + pow(z_medfilt, 2))) * 180.0)/M_PI;
 
-  Serial.print("Pitch:"); Serial.print(filt_pitch);
-  Serial.print(" Roll:"); Serial.println(filt_roll);
+  // Print tilt angle
+  tilt = acos(z_medfilt / accel) * 180.0/M_PI;
+  Serial.print("Tilt:"); Serial.println(tilt, 2);
 }
 
 // Read data from GPS module (from TinyGPS++ library)
