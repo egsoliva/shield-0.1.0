@@ -10,12 +10,12 @@
 *       to debris or objects during an emergency
 *     - The data rate set in the code is 100 Hz
 *     - ADXL345 Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
-*     - Debug thresholds and determine when the fall occurs (as of now, it appears at abnormally high peaks)
+*     - Debug thresholds and determine when the fall occurs (as of now it appears at abnormally high peaks)
 *
 *   ADDED:
 *     - Added printDebugInfo() function to print out accel, tilt, and state
 *     - Added thresholds for free-fall and impact, durations are also defined
-*     - Added stages of fall and used switch statements for the fall state
+*     - Added stages of fall and used switch statements for fall state
 *
 **********************************************************************************************************/
 
@@ -38,7 +38,7 @@
 #define GPS_BAUD 9600
 #define SIM800L_BAUD 9600
 #define IMPACT_THRESHOLD 16.00f  
-#define FREE_FALL_THRESHOLD 1.96f  
+#define FREE_FALL_THRESHOLD 9.00f  
 #define ORIENTATION_THRESHOLD 20.0f 
 
 enum FallState {
@@ -93,8 +93,8 @@ bool detect_fall(float accel, float tilt) {
   switch(fallState) {
     case NORMAL:
       if(accel < FREE_FALL_THRESHOLD) {
+        freeFallTime = millis();
         fallState = FREE_FALL_DETECTED;
-        stateStartTime = millis();
       }
       break;
 
@@ -112,10 +112,7 @@ bool detect_fall(float accel, float tilt) {
       break;
 
     case IMPACT_DETECTED:
-      if(accel > impactPeak) {
-        impactPeak = accel;
-      }
-      if(millis() - impactTime > 200) {
+      if(millis() - impactTime > 300) {
         if(tilt_change > ORIENTATION_THRESHOLD) {
           fallState = FALL_CONFIRMED;
           return true;
