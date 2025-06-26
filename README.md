@@ -11,7 +11,7 @@ To properly set up the code, the libraries must be installed into your computer.
 7. 1 TP4056 module
 
 ## Schematic Diagram
-![SHIELD Wiring Diagram](https://github.com/sagaciousboi/shield-0.1.0/blob/main/schematic-diagram.png)
+![SHIELD Wiring Diagram](https://github.com/egsoliva/shield-0.1.0/blob/main/schematic-diagram.png)
 
 ## Instructions
 When soldering the accelerometer module, make sure that the chip faces upward inside the closure. This helps ensure that the readings on the z-axis are close to 1g. In addition, the readings
